@@ -1,8 +1,8 @@
-import pandas as pd
 import os
+import pandas as pd
+from abc import ABC, abstractmethod
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import StandardScaler
-from abc import ABC, abstractmethod
 from DQC import BaseOutlierMarker
 
 
