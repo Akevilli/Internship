@@ -1,11 +1,57 @@
 import os
 from abc import ABC, abstractmethod
+from typing import Callable
 
 import pandas as pd
+from pandas.core.interchange import column
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import StandardScaler
 
 from DQC import BaseOutlierMarker
+
+
+def mark_returns(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.sort_values(["shop_id", "item_id", "date"]).copy()
+    df["to_remove"] = False
+
+    buffer = {}
+
+    for idx, row in df.iterrows():
+        key = (row.store_id, row.product_id)
+
+        if row.quantity > 0:
+            buffer.setdefault(key, []).append([idx, row.quantity])
+
+        else:
+            need = -row.quantity
+            while need > 0 and buffer.get(key):
+                sale_idx, sale_qty = buffer[key][0]
+
+                if sale_qty > need:
+                    buffer[key][0][1] -= need
+                    need = 0
+                else:
+                    df.at[sale_idx, "to_remove"] = True
+                    need -= sale_qty
+                    buffer[key].pop(0)
+
+            df.at[idx, "to_remove"] = True
+
+    return df
+
+
+def mark_young_sales(data: pd.DataFrame, threshold: int = 25) -> pd.DataFrame:
+    df = data.sort_values("shop_id").copy()
+
+    df_start_month = df.groupby("shop_id")["date_block_num"].min()
+    df_end_month = df.groupby("shop_id")["date_block_num"].max()
+
+    df_work_month = df_end_month - df_start_month  # исправил порядок
+
+    young_shops = df_work_month[df_work_month < threshold].index
+
+    df["is_young_shop"] = df["shop_id"].isin(young_shops)
+    return df
 
 
 class BaseExtractor(ABC):
@@ -236,6 +282,40 @@ class DuplicatesDropper(SimpleTransformation):
         """
         df = data.copy()
         return df.drop_duplicates()
+
+
+class Sorter(SimpleTransformation):
+    def __init__(self, columns: list, asc: bool = True):
+        self.columns = columns
+        self.asc = asc
+
+    def transform(self, data: pd.DataFrame) -> pd.DataFrame:
+        df: pd.DataFrame = data.copy()
+
+        return df.sort_values(self.columns, ascending=self.asc)
+
+
+class Masker(SimpleTransformation):
+    def __init__(self, column: str, func: Callable):
+        self.column = column
+        self.func = func
+
+    def transform(self, data: pd.DataFrame) -> pd.DataFrame:
+        df: pd.DataFrame = data.copy()
+        df[column] = self.func(df)
+
+        return df
+
+
+class ByMaskDropper(SimpleTransformation):
+    def __init__(self, column: str):
+        self.column = column
+
+    def transform(self, data: pd.DataFrame) -> pd.DataFrame:
+        df: pd.DataFrame = data.copy()
+
+        df = df[~df[self.column]]
+        return df
 
 
 class NegativeDropper(SimpleTransformation):
