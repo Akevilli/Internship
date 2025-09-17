@@ -3,27 +3,29 @@ from abc import ABC, abstractmethod
 from typing import Callable
 
 import pandas as pd
-from pandas.core.interchange import column
+import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import StandardScaler
+from tslearn.clustering import TimeSeriesKMeans
+from tslearn.utils import to_time_series_dataset
 
 from DQC import BaseOutlierMarker
 
 
-def mark_returns(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.sort_values(["shop_id", "item_id", "date"]).copy()
-    df["to_remove"] = False
+def mark_returns(df: pd.DataFrame) -> pd.Series:
+    df_sorted = df.sort_values(["shop_id", "item_id", "date"]).copy()
+    mask = pd.Series(False, index=df_sorted.index)
 
     buffer = {}
 
-    for idx, row in df.iterrows():
-        key = (row.store_id, row.product_id)
+    for idx, row in df_sorted.iterrows():
+        key = (row["shop_id"], row["item_id"])
 
-        if row.quantity > 0:
-            buffer.setdefault(key, []).append([idx, row.quantity])
+        if row["item_cnt_day"] > 0:
+            buffer.setdefault(key, []).append([idx, row["item_cnt_day"]])
 
         else:
-            need = -row.quantity
+            need = -row["item_cnt_day"]
             while need > 0 and buffer.get(key):
                 sale_idx, sale_qty = buffer[key][0]
 
@@ -31,27 +33,27 @@ def mark_returns(df: pd.DataFrame) -> pd.DataFrame:
                     buffer[key][0][1] -= need
                     need = 0
                 else:
-                    df.at[sale_idx, "to_remove"] = True
+                    mask.loc[sale_idx] = True
                     need -= sale_qty
                     buffer[key].pop(0)
 
-            df.at[idx, "to_remove"] = True
+            mask.loc[idx] = True
 
-    return df
+    return mask.loc[df.index]
 
 
-def mark_young_sales(data: pd.DataFrame, threshold: int = 25) -> pd.DataFrame:
+def mark_young_shops(data: pd.DataFrame, threshold: int = 25) -> pd.DataFrame:
     df = data.sort_values("shop_id").copy()
 
     df_start_month = df.groupby("shop_id")["date_block_num"].min()
     df_end_month = df.groupby("shop_id")["date_block_num"].max()
 
-    df_work_month = df_end_month - df_start_month  # исправил порядок
+    df_work_month = df_end_month - df_start_month
 
     young_shops = df_work_month[df_work_month < threshold].index
 
-    df["is_young_shop"] = df["shop_id"].isin(young_shops)
-    return df
+    return df["shop_id"].isin(young_shops)
+
 
 
 class BaseExtractor(ABC):
@@ -302,7 +304,7 @@ class Masker(SimpleTransformation):
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
         df: pd.DataFrame = data.copy()
-        df[column] = self.func(df)
+        df[self.column] = self.func(df)
 
         return df
 
@@ -353,6 +355,36 @@ class ColumnDropper(SimpleTransformation):
         """
         df: pd.DataFrame = data.copy()
         return df.drop(columns=self.columns)
+
+
+class Clustering(FittedTransformation):
+    def __init__(self, n_clusters: int, max_iter: int = 20):
+        self.n_clusters = n_clusters
+        self.max_iter = max_iter
+        self.KMeans = TimeSeriesKMeans(n_clusters=self.n_clusters, metric="dtw", max_iter=max_iter, random_state=42)
+
+    def transform(self, data: pd.DataFrame) -> pd.DataFrame:
+        df: pd.DataFrame = data.copy()
+        X = self.preprocess(df)
+        y_pred = self.KMeans.predict(X)
+
+        clustered_map = pd.DataFrame({"shop_id": df["shop_id"].unique(), "cluster": y_pred})
+        clustered_shops = pd.merge(df, clustered_map, on="shop_id", how="left")
+        return clustered_shops
+
+    def fit(self, data: pd.DataFrame):
+        X = self.preprocess(data)
+        self.KMeans.fit(X)
+
+    def preprocess(self, data: pd.DataFrame) -> np.ndarray:
+        df: pd.DataFrame = data.copy()
+        df_preprocessed: pd.DataFrame = df[["date", "shop_id", "item_cnt_day"]].copy()
+        df_preprocessed = df_preprocessed.groupby(["shop_id", "date"])["item_cnt_day"].sum().reset_index().sort_values(
+            "shop_id")
+        ts_list = df_preprocessed.groupby("shop_id")["item_cnt_day"].apply(list).tolist()
+        X: np.ndarray = to_time_series_dataset(ts_list)
+
+        return X
 
 
 class DatatypesTransformer(SimpleTransformation):
@@ -475,7 +507,7 @@ class Transformer(BaseTransformer):
             A list of transformation objects to be applied in order.
     """
     def __init__(self, transformations: list[SimpleTransformation | FittedTransformation]):
-        self.transformations: list[SimpleTransformation] = transformations
+        self.transformations: list[SimpleTransformation | FittedTransformation] = transformations
 
     def transform(self, row_data: pd.DataFrame) -> pd.DataFrame:
         """
@@ -512,12 +544,12 @@ class Transformer(BaseTransformer):
         df: pd.DataFrame = data.copy()
 
         for transformation in self.transformations:
-            if isinstance(transformation, SimpleTransformation):
-                df = transformation.transform(df)
-
-        for transformation in self.transformations:
             if isinstance(transformation, FittedTransformation):
                 transformation.fit(df)
+                df = transformation.transform(df)
+            else:
+                df = transformation.transform(df)
+
 
 
 class CSVLoader(BaseLoader):
@@ -565,9 +597,11 @@ class ETL:
         The pipeline extracts data, fits and transforms it, and then loads it.
         """
         row_data = self.extractor.extract()
-        self.transformer.fit(row_data)
         processed_data = self.transformer.transform(row_data)
         self.loader.load(processed_data)
 
         return processed_data
 
+    def fit(self) -> None:
+        row_data = self.extractor.extract()
+        self.transformer.fit(row_data)
