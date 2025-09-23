@@ -4,6 +4,7 @@ from typing import Callable
 
 import pandas as pd
 import numpy as np
+from pandas.core.interchange import column
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import StandardScaler
 from tslearn.clustering import TimeSeriesKMeans
@@ -13,6 +14,30 @@ from DQC import BaseOutlierMarker
 
 
 def mark_returns(df: pd.DataFrame) -> pd.Series:
+    """
+    Identifies and marks sales and returns in a DataFrame based on item transactions.
+
+    This function sorts the DataFrame by `shop_id`, `item_id`, and `date` to
+    process transactions chronologically. It uses a buffer to track positive
+    sales (`item_cnt_day > 0`) for each `(shop_id, item_id)` pair. When a
+    negative transaction (a return) is encountered, the function attempts to
+    match it with previous sales in the buffer.
+
+    - If a return fully or partially consumes a previous sale, that sale's index
+      is marked.
+    - The return transaction's own index is also marked.
+    - If a sale is partially consumed, its remaining quantity is updated in the
+      buffer.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame containing transaction data. It
+            must have the columns 'shop_id', 'item_id', 'date', and 'item_cnt_day'.
+
+    Returns:
+        pd.Series: A boolean Series with the same index as the original DataFrame.
+            A value of `True` indicates that the corresponding transaction is
+            either a return or a sale that has been matched with a return.
+    """
     df_sorted = df.sort_values(["shop_id", "item_id", "date"]).copy()
     mask = pd.Series(False, index=df_sorted.index)
 
@@ -43,6 +68,25 @@ def mark_returns(df: pd.DataFrame) -> pd.Series:
 
 
 def mark_young_shops(data: pd.DataFrame, threshold: int = 25) -> pd.DataFrame:
+    """
+    Identifies and marks "young" shops based on their operational history.
+
+    A shop is considered "young" if the total number of months it has been
+    active is less than a specified threshold. The function calculates the
+    operational duration for each shop by finding the difference between its
+    maximum and minimum 'date_block_num'.
+
+    Args:
+        data (pd.DataFrame): The input DataFrame. It must contain the columns
+            'shop_id' and 'date_block_num'.
+        threshold (int, optional): The maximum number of months a shop can be
+            active to be considered "young". Defaults to 25.
+
+    Returns:
+        pd.Series: A boolean Series indicating whether each row's 'shop_id'
+            corresponds to a "young" shop. The Series has the same index as the
+            input DataFrame.
+    """
     df = data.sort_values("shop_id").copy()
 
     df_start_month = df.groupby("shop_id")["date_block_num"].min()
@@ -287,49 +331,124 @@ class DuplicatesDropper(SimpleTransformation):
 
 
 class Sorter(SimpleTransformation):
+    """
+    A transformation that sorts a DataFrame based on specified columns.
+
+    This class sorts a copy of the input DataFrame by one or more columns
+    in either ascending or descending order.
+
+    Args:
+        columns (list): A list of column names to sort the DataFrame by.
+        asc (bool, optional): If True, sorts in ascending order. If False,
+            sorts in descending order. Defaults to True.
+    """
     def __init__(self, columns: list, asc: bool = True):
         self.columns = columns
         self.asc = asc
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
-        df: pd.DataFrame = data.copy()
+        """
+        Sorts the DataFrame.
 
+        Args:
+            data (pd.DataFrame): The input DataFrame to be sorted.
+
+        Returns:
+            pd.DataFrame: A new DataFrame sorted according to the specified
+                columns and order.
+        """
+        df: pd.DataFrame = data.copy()
         return df.sort_values(self.columns, ascending=self.asc)
 
 
 class Masker(SimpleTransformation):
+    """
+    A transformation that applies a function to a DataFrame to create a new
+    masking column.
+
+    This class applies a given function to the DataFrame and stores the result
+    in a new column, which typically serves as a boolean mask.
+
+    Args:
+        column (str): The name of the new column to be created.
+        func (Callable): A callable (function) that takes a DataFrame as input
+            and returns a Series or array to populate the new column.
+    """
     def __init__(self, column: str, func: Callable):
         self.column = column
         self.func = func
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Adds a new column to the DataFrame based on a function's output.
+
+        Args:
+            data (pd.DataFrame): The input DataFrame.
+
+        Returns:
+            pd.DataFrame: A new DataFrame with the additional column containing
+                the result of the function.
+        """
         df: pd.DataFrame = data.copy()
         df[self.column] = self.func(df)
-
         return df
 
 
 class ByMaskDropper(SimpleTransformation):
+    """
+    A transformation that drops rows from a DataFrame based on a boolean mask column.
+
+    This class removes all rows where the value in the specified column is
+    True, effectively keeping only the rows where the mask is False.
+
+    Args:
+        column (str): The name of the boolean mask column.
+    """
     def __init__(self, column: str):
         self.column = column
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
-        df: pd.DataFrame = data.copy()
+        """
+        Drops rows where the specified column is True.
 
+        Args:
+            data (pd.DataFrame): The input DataFrame containing the mask column.
+
+        Returns:
+            pd.DataFrame: A new DataFrame with the rows dropped.
+        """
+        df: pd.DataFrame = data.copy()
         df = df[~df[self.column]]
         return df
 
 
 class NegativeDropper(SimpleTransformation):
-    def __init__(self, columns: list):
+    """
+    A transformation that drops rows with negative values in specified columns.
+
+    This class iterates through a list of columns and removes any rows where a
+    negative value is found in any of those columns.
+
+    Args:
+        columns (list[str]): A list of column names to check for negative values.
+    """
+    def __init__(self, columns: list[str]):
         self.columns = columns
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
-        df: pd.DataFrame = data.copy()
+        """
+        Drops rows containing negative values in the specified columns.
 
+        Args:
+            data (pd.DataFrame): The input DataFrame.
+
+        Returns:
+            pd.DataFrame: A new DataFrame with rows containing negative values
+                in the target columns removed.
+        """
+        df: pd.DataFrame = data.copy()
         for column in self.columns:
             df = df.drop(df[df[column] < 0].index)
-
         return df
 
 
