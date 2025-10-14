@@ -231,6 +231,57 @@ class MovingAverageGenerator(BaseEstimator, TransformerMixin):
         return df
 
 
+class LagFeatureGenerator(BaseEstimator, TransformerMixin):
+    """
+    A transformer that generates lag features for a time series.
+
+    This class creates new columns based on past values of a specified column,
+    grouped by specified key columns. It's crucial for providing a model with
+    historical context in time series forecasting.
+    """
+
+    def __init__(self, column: str, lags: list[int], group_by_col: list[str], sort_by_col: list[str]):
+        """
+        Initializes the transformer.
+
+        Args:
+            column (str): The column for which to generate lag features.
+            lags (list[int]): A list of integer lags (e.g., [1, 2, 7]) to create.
+            group_by_col (list[str]): The columns to group by before shifting.
+            sort_by_col (list[str]): The columns to sort by to ensure correct lag order.
+        """
+        self.column = column
+        self.lags = lags
+        self.group_by_col = group_by_col
+        self.sort_by_col = sort_by_col
+
+    def fit(self, X: pd.DataFrame, y=None):
+        """
+        The fit method for transformers. In this case, it doesn't learn anything.
+        """
+        return self
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """
+        Generates lag features for the specified column.
+
+        The DataFrame is first sorted, then grouped, and finally the `shift`
+        method is used to create lagged versions of the target column.
+
+        Args:
+            X (pd.DataFrame): The input DataFrame.
+
+        Returns:
+            pd.DataFrame: The DataFrame with new lag feature columns.
+        """
+        df = X.copy()
+        df = df.sort_values(self.sort_by_col)
+        for lag in self.lags:
+            df[f"{self.column}_lag_{lag}"] = df.groupby(by=self.group_by_col)[self.column].shift(lag)
+
+        return df
+
+
 class DifferenceGenerator(BaseEstimator, TransformerMixin):
     """
     A transformer that applies N-order difference transformation (Y_t - Y_t-lag)
