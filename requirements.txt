@@ -3,4 +3,6 @@ numpy
 scikit-learn
 seaborn
 matplotlib
-IPython
+scipy
+statsmodels
+
