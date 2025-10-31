@@ -73,6 +73,12 @@ class DateDivider(BaseEstimator, TransformerMixin):
         """
         self.column = column
 
+    def fit(self, X: pd.DataFrame, y=None):
+        """
+        The fit method for transformers. In this case, it doesn't learn anything.
+        """
+        return self
+
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
         Extracts day, month, and year, and drops the original date column.
@@ -382,5 +388,5 @@ class ConditionDropper(BaseEstimator, TransformerMixin):
         """
         df: pd.DataFrame = X.copy()
 
-        df = df[self.condition(df[self.column])]
+        df = df[~self.condition(df[self.column])]
         return df
