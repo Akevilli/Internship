@@ -6,4 +6,5 @@ matplotlib
 IPython
 statsmodels
 xgboost
-
+hyperopt
+shap
