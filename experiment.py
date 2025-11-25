@@ -12,7 +12,6 @@ from ds_package.hyperopt import get_best_hyperparameters
 
 NEPTUNE_API_TOKEN = os.environ.get("NEPTUNE_API_TOKEN")
 NEPTUNE_PROJECT = os.environ.get("NEPTUNE_PROJECT")
-GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID")
 
 run = neptune.init_run(
     api_token=NEPTUNE_API_TOKEN,

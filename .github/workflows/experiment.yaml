@@ -19,16 +19,13 @@ jobs:
           pip install pip install --index-url https://pypi.org/simple/ --extra-index-url https://test.pypi.org/simple/ Akevilli-DS-Internship==1.0.3
           pip install pandas dvc[gdrive] neptune-client xgboost
 
-      - name: Execute Experiment and Track Results
+      - name: Prepare Secure DVC Environment
         env:
           GDRIVE_SERVICE_ACCOUNT_KEY_B64: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_KEY }}
           NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_API_TOKEN }}
           NEPTUNE_PROJECT: ${{ secrets.NEPTUNE_PROJECT }}
-          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
-          DVC_CONFIG_REMOTE_GDRIVE_GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
-          DVC_CONFIG_REMOTE_GDRIVE_GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
         run: |
-          "$GDRIVE_SERVICE_ACCOUNT_KEY_B64" | base64 -d > gdrive_key.json
+          echo "$GDRIVE_SERVICE_ACCOUNT_KEY_B64" | base64 -d > gdrive_key.json
           export DVC_CONFIG_REMOTE_CI_GDRIVE_REMOTE_GDRIVE_SERVICE_ACCOUNT_JSON_FILE_PATH=gdrive_key.json
           dvc pull
           python experiment.py
