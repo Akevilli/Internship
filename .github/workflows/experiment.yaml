@@ -25,5 +25,5 @@ jobs:
           NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_API_TOKEN }}
           NEPTUNE_PROJECT: ${{ secrets.NEPTUNE_PROJECT }}
         run: |
-          dvc pull
+          dvc pull -v
           python experiment.py
