@@ -29,6 +29,7 @@ _pipeline = Pipeline([
     ("MovingAverageGenerator2", MovingAverageGenerator(column="item_cnt_day_diff_lag1_c1", window_size=30, min_periods=1, group_by_col=["shop_id", "item_id"], sort_by_col=["date"])),
 
     ("DateDivider", DateDivider(column="date")),
+    ("NanDropper4", NanDropper())
 ])
 
 def extract_features(data: pd.DataFrame) -> pd.DataFrame:

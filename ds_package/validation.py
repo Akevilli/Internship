@@ -2,30 +2,31 @@ import pandas as pd
 
 
 _schema = {
-    "date": pd.DatetimeTZDtype(tz="Europe/Moscow"),
-    "date_block_num": pd.Int32Dtype(),
-    "shop_id": pd.Int32Dtype(),
-    "item_id": pd.Int32Dtype(),
-    "item_price": pd.Float32Dtype(),
-    "item_cnt_day": pd.Int32Dtype(),
-    "shop_name": pd.StringDtype(),
-    "item_name": pd.StringDtype(),
-    "item_category_id": pd.Int32Dtype(),
-    "item_category_name": pd.StringDtype(),
-    "cluster": pd.Int32Dtype(),
+    "date": "datetime64[ns]",
+    "date_block_num": "int64",
+    "shop_id": "int64",
+    "item_id": "int64",
+    "item_price": "float64",
+    "item_cnt_day": "int64",
+    "shop_name": "object",
+    "item_name": "object",
+    "item_category_id": "int64",
+    "item_category_name": "object",
+    "cluster": "int64",
 }
 
 def validate(df: pd.DataFrame):
 
-    assert df.isna().sum().sum() == 0, f"Data has missing values! {df.isna().sum()}"
+    assert df.isnull().sum().sum() == 0, f"Data has missing values! {df.isna().sum()}"
     assert df.duplicated().sum() == 0, "Data has duplicated!"
 
     expected_columns = set(_schema.keys())
-    extra_columns = df.columns - expected_columns
-    assert extra_columns, f"There are extra columns in the data! {extra_columns}"
+    actual_columns = set(df.columns)
+    extra_columns = actual_columns - expected_columns
+    assert not extra_columns, f"There are extra columns in the data! {extra_columns}"
 
-    missing_columns = expected_columns - df.columns
-    assert missing_columns, f"There are missing columns in the data! {missing_columns}"
+    missing_columns = expected_columns - actual_columns
+    assert not missing_columns, f"There are missing columns in the data! {missing_columns}"
 
     actual_types = df.dtypes.apply(lambda x: x.name).to_dict()
     type_mismatches = {}
