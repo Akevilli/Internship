@@ -25,7 +25,7 @@ jobs:
           NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_API_TOKEN }}
           NEPTUNE_PROJECT: ${{ secrets.NEPTUNE_PROJECT }}
         run: |
-          CRED_FILE = "service_account_key.json"
+          CRED_FILE="service_account_key.json"
           echo "$GDRIVE_CREDENTIALS_DATA" > "$CRED_FILE"
           dvc remote modify gdrive gdrive gdrive_service_account_json "$CRED_FILE"
           dvc pull -v
