@@ -28,5 +28,6 @@ jobs:
           CRED_FILE="service_account_key.json"
           echo "$GDRIVE_CREDENTIALS_DATA" > "$CRED_FILE"
           dvc remote modify gdrive gdrive gdrive_service_account_json "$CRED_FILE"
+          dvc remote modify gdrive gdrive_user_credentials false
           dvc pull -v
           python experiment.py
