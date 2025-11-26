@@ -17,8 +17,8 @@ _schema = {
 
 def validate(df: pd.DataFrame):
 
-    assert df.isna().sum().sum() != 0, "Data has missing values!"
-    assert df.duplicated().sum() != 0, "Data has duplicated!"
+    assert df.isna().sum().sum() == 0, f"Data has missing values! {df.isna().sum()}"
+    assert df.duplicated().sum() == 0, "Data has duplicated!"
 
     expected_columns = set(_schema.keys())
     extra_columns = df.columns - expected_columns
