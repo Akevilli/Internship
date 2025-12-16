@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Akevilli-DS-Internship"
+version = "1.0.5"
+authors = [
+  { name="Dzmitry Nikifarau", email="dzmitry.nikifarau@innowise.com" },
+]
+description = "A reusable package for data science feature engineering and hyperopt."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+
+dependencies = [
+    "pandas>=2.2.2",
+    "numpy>=2.0.2",
+    "scikit-learn>=1.6.1",
+    "hyperopt>=0.2.7",
+]
+
+[tool.setuptools]
+packages = ["ds_package"]

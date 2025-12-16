@@ -1,0 +1,29 @@
+name: Experiment
+on:
+  push:
+
+jobs:
+  run_experiment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11' 
+
+      - name: Install MLOps Dependencies
+        run: |
+          pip install -q pip install --index-url https://pypi.org/simple/ --extra-index-url https://test.pypi.org/simple/ Akevilli-DS-Internship==1.0.5
+          pip install -q pandas dvc[gdrive] neptune xgboost
+
+      - name: Experiment
+        env:
+          GDRIVE_CREDENTIALS_DATA: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_KEY }}
+          NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_API_TOKEN }}
+          NEPTUNE_PROJECT: ${{ secrets.NEPTUNE_PROJECT }}
+        run: |
+          dvc pull
+          python experiment.py
