@@ -27,6 +27,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Create empty .env file
+        run: touch .env
+
       - name: Service account json file creating
         working-directory: ./.dvc
         run: echo "$GDRIVE_SERVICE_ACCOUNT_KEY" > service_account.json
