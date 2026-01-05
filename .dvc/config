@@ -3,3 +3,4 @@
 ['remote "gdrive"']
     url = gdrive://1Go1PZ8ierFQ0A6wFZOvoITcUz-mQ4PRM
     gdrive_use_service_account = true
+    gdrive_service_account_json_file_path = /opt/airflow/dvc_repo/.dvc/service_account.json

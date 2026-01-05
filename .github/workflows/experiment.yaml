@@ -1,29 +1,37 @@
 name: Experiment
 on:
   push:
+    branches: [ "master" ]
 
 jobs:
   run_experiment:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      AIRFLOW_IMAGE_NAME: ${{ secrets.AIRFLOW_IMAGE_NAME }}
+      NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_API_TOKEN }}
+      NEPTUNE_PROJECT: ${{ secrets.NEPTUNE_PROJECT }}
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        
-      - name: Set up Python
-        uses: actions/setup-python@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
-          python-version: '3.11' 
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install MLOps Dependencies
-        run: |
-          pip install -q pip install --index-url https://pypi.org/simple/ --extra-index-url https://test.pypi.org/simple/ Akevilli-DS-Internship==1.0.5
-          pip install -q pandas dvc[gdrive] neptune xgboost
+      - name: Service account json file creating
+        working-directory: ./.dvc
+        run: echo ${{ secrets.GDRIVE_SERVICE_ACCOUNT_KEY }} >> service_account.json
 
-      - name: Experiment
-        env:
-          GDRIVE_CREDENTIALS_DATA: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_KEY }}
-          NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_API_TOKEN }}
-          NEPTUNE_PROJECT: ${{ secrets.NEPTUNE_PROJECT }}
-        run: |
-          dvc pull
-          python experiment.py
+      - name: Build docker-compose
+        run: docker compose build
+
+      - name: Push docker images
+        run: docker compose push
