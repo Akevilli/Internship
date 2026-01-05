@@ -1,4 +1,3 @@
-
 # These projects were completed during the internship in the "Innowise Group" "ML Engineer Trainee" program
 
 | Project Title    | Description                                                                              | Libraries Used                                                                            |
