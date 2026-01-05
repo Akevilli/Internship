@@ -1,7 +1,7 @@
 import pandas as pd
 from sklearn.pipeline import Pipeline
 
-from .Pipeline import (
+from .pipeline import (
     ConditionDropper,
     GroupAndSummarize,
     LagFeatureGenerator,
