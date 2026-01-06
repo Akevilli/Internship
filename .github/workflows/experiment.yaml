@@ -35,7 +35,7 @@ jobs:
         run: echo "$GDRIVE_SERVICE_ACCOUNT_KEY" > service_account.json
 
       - name: Build docker-compose
-        run: docker compose build
+        run: docker build -t ${{ secrets.AIRFLOW_IMAGE_NAME }} .
 
       - name: Push docker images
-        run: docker compose push
+        run: docker push ${{ secrets.AIRFLOW_IMAGE_NAME }}
